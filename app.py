@@ -4,6 +4,11 @@ import streamlit as st
 import db_setup
 import pandas as pd
 import matplotlib.pyplot as plt
+from db_setup import init_db
+
+# Initialize database (only runs if not already present)
+init_db()
+
 
 from portfolio import add_holding, calculate_portfolio, simulate_investment, get_holdings_df
 from recommender import recommend_stocks, recommend_mfs
