@@ -1,6 +1,7 @@
 # app.py
 # Purpose: Integrated Streamlit UI for PortfoLink - PortfoliQ + InvestMatch
 import streamlit as st
+import db_setup
 import pandas as pd
 import matplotlib.pyplot as plt
 
