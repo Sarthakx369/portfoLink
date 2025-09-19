@@ -1,11 +1,25 @@
 # portfolio.py
-# Purpose: Manage user portfolio & compute summary metrics
 
 import sqlite3
 import pandas as pd
+from datetime import datetime
+from math import sqrt
 from metrics import latest_price, load_price_series, cagr_from_series, sharpe_ratio, volatility
 
 DB_PATH = "portfolio.db"
+
+# -------------------------
+# Add a holding
+# -------------------------
+def add_holding(symbol, quantity, buy_price, buy_date=None):
+    buy_date = buy_date or datetime.now().strftime("%Y-%m-%d")
+    conn = sqlite3.connect(DB_PATH)
+    conn.execute(
+        "INSERT INTO user_portfolio (stock_symbol, quantity, buy_price) VALUES (?, ?, ?)",
+        (symbol, float(quantity), float(buy_price))
+    )
+    conn.commit()
+    conn.close()
 
 # -------------------------
 # Fetch portfolio from DB
@@ -50,14 +64,12 @@ def calculate_portfolio():
         price = latest_price(sym)
         if price is None:
             print(f"[WARN] Could not fetch price for {sym}, skipping...")
-            continue  # Skip if no price found
+            continue
 
-        # Position values
         current_value = qty * price
         invested = qty * buy_price
         profit_loss = current_value - invested
 
-        # Historical metrics
         series = load_price_series(sym, period="1y")
         cagr = cagr_from_series(series)
         sharpe = sharpe_ratio(series)
@@ -89,3 +101,35 @@ def calculate_portfolio():
     }
 
     return df_results, summary
+
+# -------------------------
+# Simulate investments
+# -------------------------
+def simulate_investment(recs, total_amount):
+    """
+    recs: list of tuples like (symbol, name, sector, score, cagr, sharpe, vol)
+    """
+    if not recs:
+        return None
+    n = len(recs)
+    allot = total_amount / n
+    allocations = []
+    cagr_list = []
+    vol_list = []
+    weights = []
+    for item in recs:
+        symbol = item[0]
+        cagr = item[4] if len(item) > 4 else None
+        vol = item[6] if len(item) > 6 else None
+        if cagr is None or vol is None:
+            continue
+        allocations.append((symbol, round(allot, 2), round(cagr * 100, 2), round(vol * 100, 2)))
+        cagr_list.append(cagr)
+        vol_list.append(vol)
+        weights.append(1.0 / n)
+    expected_cagr = sum([w * cg for w, cg in zip(weights, cagr_list)])
+    expected_var = sum([(w ** 2) * (v ** 2) for w, v in zip(weights, vol_list)])
+    expected_vol = sqrt(expected_var)
+    return {"expected_cagr_pct": round(expected_cagr * 100, 2),
+            "expected_vol_pct": round(expected_vol * 100, 2),
+            "allocations": allocations}
